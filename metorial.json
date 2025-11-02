@@ -1,6 +1,12 @@
 {
   "name": "TypeScript MCP Server",
   "runtime": "typescript.deno",
-  "entry": "server.ts"
+  "entry": "server.ts",
+  "exclude": [
+    "tests/**/*",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "test-*.js"
+  ]
 }
 

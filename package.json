@@ -2,6 +2,17 @@
   "name": "terrence-tools",
   "version": "1.0.0",
   "main": "server.ts",
+  "files": [
+    "server.ts",
+    "tools/**/*.ts",
+    "db.ts",
+    "supabase.ts",
+    "types.ts",
+    "utils.ts",
+    "metorial.json",
+    "tsconfig.json",
+    "package.json"
+  ],
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^20.10.0",

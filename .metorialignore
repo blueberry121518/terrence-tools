@@ -1,6 +1,10 @@
 tests/
-*.test.ts
-*.spec.ts
-test-*.js
-coverage/
+**/tests/
+**/*.test.ts
+**/*.spec.ts
+**/test-*.js
+**/coverage/
+node_modules/
+.env
+.env.example
 

@@ -14,6 +14,13 @@
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "tests"]
+  "include": [
+    "server.ts",
+    "tools/**/*.ts",
+    "db.ts",
+    "supabase.ts",
+    "types.ts",
+    "utils.ts"
+  ],
+  "exclude": ["node_modules", "tests", "**/tests/**", "**/*.test.ts", "**/*.spec.ts", "test-*.js"]
 }

@@ -5,9 +5,13 @@ node_modules/
 # TypeScript
 *.tsbuildinfo
 
-# Testing
+# Testing - exclude from deployment
+/tests/
 tests/
+**/tests/
 coverage/
 *.test.js
+*.test.ts
 *.spec.js
+*.spec.ts
 test-*.js
