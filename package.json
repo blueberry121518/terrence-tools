@@ -1,12 +1,26 @@
 {
-  "name": "plain-typescript",
+  "name": "terrence-tools",
   "version": "1.0.0",
   "main": "server.ts",
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.10.0",
+    "@types/pg": "^8.10.9",
+    "jest": "^29.7.0",
+    "tsx": "^4.20.6",
     "typescript": "latest"
   },
+  "scripts": {
+    "start": "tsx server.ts",
+    "test": "tsx tests/run.ts",
+    "test:database": "tsx tests/run.ts --database",
+    "test:integrations": "tsx tests/run.ts --integrations"
+  },
   "dependencies": {
-    "metorial": "latest",
-    "@metorial/mcp-server-sdk": "latest"
+    "@metorial/mcp-server-sdk": "^1.0.2",
+    "@modelcontextprotocol/sdk": "^1.20.2",
+    "dotenv": "^17.2.3",
+    "pg": "^8.11.3",
+    "zod": "^3.25.76"
   }
 }

@@ -6,6 +6,7 @@
     "inlineSources": false,
     "isolatedModules": true,
     "target": "ESNext",
+    "moduleResolution": "node",
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "skipLibCheck": true,

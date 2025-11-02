@@ -1,40 +1,21 @@
-import { z, metorial, McpServer, ResourceTemplate } from '@metorial/mcp-server-sdk';
+import 'dotenv/config';
+import { metorial, McpServer } from '@metorial/mcp-server-sdk';
+import { registerDatabaseTools } from './tools/database';
+import { registerIntegrationTools } from './tools/integrations';
 
 interface Config {
-  // OAuth Token is provided as `token`
-  // token: string;
+  // API keys are provided via environment variables
 }
 
+// Metorial's createServer - compatible with Metorial platform hosting
 metorial.createServer<Config>({
-  name: 'demo-server',
+  name: 'terrence-mcp',
   version: '1.0.0'
-}, async (server, args) => {
-  server.registerTool(
-    'add',
-    {
-      title: 'Addition Tool',
-      description: 'Add two numbers',
-      inputSchema: { a: z.number(), b: z.number() }
-    },
-    async ({ a, b }) => ({
-      content: [{ type: 'text', text: String(a + b) }]
-    })
-  );
+}, async (server: McpServer, args: Config) => {
+  // Register all database tools
+  registerDatabaseTools(server);
 
-  server.registerResource(
-    'greeting',
-    new ResourceTemplate('greeting://{name}', { list: undefined }),
-    {
-      title: 'Greeting Resource',
-      description: 'Dynamic greeting generator'
-    },
-    async (uri, { name }) => ({
-      contents: [
-        {
-          uri: uri.href,
-          text: `Hello, ${name}!`
-        }
-      ]
-    })
-  );
+  // Register all integration tools
+  registerIntegrationTools(server);
 });
+

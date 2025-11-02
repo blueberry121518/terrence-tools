@@ -1,0 +1,11 @@
+.env
+node_modules/
+.env.example
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+*.test.js
+*.spec.js
