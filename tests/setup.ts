@@ -2,7 +2,7 @@
  * Test setup and utilities for end-to-end tests
  * These tests make REAL API calls - nothing is mocked
  */
-import { McpServer } from '@metorial/mcp-server-sdk';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 // Import z from zod directly to ensure it's available
 import { z } from 'zod';
 
@@ -11,8 +11,8 @@ if (typeof global !== 'undefined' && !global.z) {
   global.z = z;
 }
 
-import { registerDatabaseTools } from '../tools/database';
-import { registerIntegrationTools } from '../tools/integrations';
+import { registerDatabaseTools } from '../tools/database.ts';
+import { registerIntegrationTools } from '../tools/integrations.ts';
 
 /**
  * Creates a test MCP server with all tools registered

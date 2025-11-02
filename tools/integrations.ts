@@ -1,27 +1,13 @@
 import { z } from 'zod';
 import { McpServer } from '@metorial/mcp-server-sdk';
-import { createErrorResponse, createSuccessResponse } from '../utils';
+import { createErrorResponse, createSuccessResponse } from '../utils.ts';
 
 /**
  * Registers all external integration MCP tools (Slack, Notion, etc.)
  */
 export function registerIntegrationTools(server: McpServer) {
-  // Add registerTool alias for Metorial compatibility (uses .tool() under the hood)
-  const registerTool = <T extends z.ZodRawShape>(
-    name: string,
-    config: { title: string; description: string; inputSchema: T },
-    handler: (args: z.infer<z.ZodObject<T>>) => Promise<any>
-  ) => {
-    server.tool(
-      name,
-      config.description,
-      config.inputSchema,
-      handler as any
-    );
-  };
-
   // 1. send_slack_message
-  registerTool(
+  server.registerTool(
     'send_slack_message',
     {
       title: 'Send Slack Message',
@@ -95,7 +81,7 @@ export function registerIntegrationTools(server: McpServer) {
   );
 
   // 2. send_notion_update
-  registerTool(
+  server.registerTool(
     'send_notion_update',
     {
       title: 'Send Notion Update',

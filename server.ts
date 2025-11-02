@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { metorial, McpServer } from '@metorial/mcp-server-sdk';
-import { registerDatabaseTools } from './tools/database';
-import { registerIntegrationTools } from './tools/integrations';
+import { registerDatabaseTools } from './tools/database.ts';
+import { registerIntegrationTools } from './tools/integrations.ts';
 
 interface Config {
   // API keys are provided via environment variables

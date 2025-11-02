@@ -1,29 +1,16 @@
 import { z } from 'zod';
 import { McpServer } from '@metorial/mcp-server-sdk';
-import { query } from '../db';
-import { FunctionResult, FunctionContext, CallerCallee } from '../types';
-import { createErrorResponse, createSuccessResponse } from '../utils';
+import { query } from '../db.ts';
+import { semanticSearch, getFunctionById, queryFunctions, queryFunctionCalls } from '../supabase.ts';
+import { FunctionResult, FunctionContext, CallerCallee } from '../types.ts';
+import { createErrorResponse, createSuccessResponse } from '../utils.ts';
 
 /**
  * Registers all database-related MCP tools
  */
 export function registerDatabaseTools(server: McpServer) {
-  // Add registerTool alias for Metorial compatibility (uses .tool() under the hood)
-  const registerTool = <T extends z.ZodRawShape>(
-    name: string,
-    config: { title: string; description: string; inputSchema: T },
-    handler: (args: z.infer<z.ZodObject<T>>) => Promise<any>
-  ) => {
-    server.tool(
-      name,
-      config.description,
-      config.inputSchema,
-      handler as any
-    );
-  };
-
   // 1. query_codebase_semantic
-  registerTool(
+  server.registerTool(
     'query_codebase_semantic',
     {
       title: 'Query Codebase Semantically',
@@ -36,32 +23,14 @@ export function registerDatabaseTools(server: McpServer) {
     },
     async ({ query: searchQuery, codebase_id, limit }) => {
       try {
-        const searchPattern = `%${searchQuery}%`;
-        let results: FunctionResult[];
-
-        if (codebase_id) {
-          const result = await query<FunctionResult>(
-            `SELECT id, name, signature, file_path, line_number, codebase_id
-             FROM functions
-             WHERE codebase_id = $1
-             AND (name ILIKE $2 OR signature ILIKE $2)
-             LIMIT $3`,
-            [codebase_id, searchPattern, limit]
-          );
-          results = result.rows;
-        } else {
-          const result = await query<FunctionResult>(
-            `SELECT id, name, signature, file_path, line_number, codebase_id
-             FROM functions
-             WHERE name ILIKE $1 OR signature ILIKE $1
-             LIMIT $2`,
-            [searchPattern, limit]
-          );
-          results = result.rows;
-        }
+        // Use Supabase for semantic search
+        const results = await semanticSearch(searchQuery, {
+          codebase_id: codebase_id || undefined,
+          limit: limit || 10
+        });
 
         return createSuccessResponse({
-          results: results.map(r => ({
+          results: results.map((r: any) => ({
             id: r.id,
             name: r.name,
             signature: r.signature,
@@ -78,7 +47,7 @@ export function registerDatabaseTools(server: McpServer) {
   );
 
   // 2. get_function_context
-  registerTool(
+  server.registerTool(
     'get_function_context',
     {
       title: 'Get Function Context',
@@ -90,38 +59,28 @@ export function registerDatabaseTools(server: McpServer) {
     },
     async ({ function_id, include_code }) => {
       try {
-        // Get function details
-        const funcResult = await query<FunctionContext>(
-          `SELECT id, name, signature, file_path, line_number, code,
-                  parameters, return_type, caller_count, callee_count
-           FROM functions
-           WHERE id = $1`,
-          [function_id]
-        );
+        // Get function details using Supabase
+        const func = await getFunctionById(function_id);
 
-        if (funcResult.rows.length === 0) {
+        if (!func) {
           return createErrorResponse(new Error('Function not found'), 'Function not found');
         }
 
-        const func = funcResult.rows[0];
-
         // Get callers (functions that call this function)
-        const callersResult = await query<CallerCallee>(
-          `SELECT f.id, f.name, f.file_path
-           FROM functions f
-           JOIN function_calls fc ON f.id = fc.caller_id
-           WHERE fc.callee_id = $1`,
-          [function_id]
-        );
+        const callerCalls = await queryFunctionCalls({ callee_id: function_id });
+        const callerIds = [...new Set(callerCalls.map((c: any) => c.caller_id))];
+        const callersData = callerIds.length > 0 
+          ? await Promise.all(callerIds.map(id => getFunctionById(id)))
+              .then(funcs => funcs.filter(f => f !== null))
+          : [];
 
         // Get callees (functions called by this function)
-        const calleesResult = await query<CallerCallee>(
-          `SELECT f.id, f.name, f.file_path
-           FROM functions f
-           JOIN function_calls fc ON f.id = fc.callee_id
-           WHERE fc.caller_id = $1`,
-          [function_id]
-        );
+        const calleeCalls = await queryFunctionCalls({ caller_id: function_id });
+        const calleeIds = [...new Set(calleeCalls.map((c: any) => c.callee_id))];
+        const calleesData = calleeIds.length > 0
+          ? await Promise.all(calleeIds.map(id => getFunctionById(id)))
+              .then(funcs => funcs.filter(f => f !== null))
+          : [];
 
         const response = {
           function: {
@@ -133,15 +92,15 @@ export function registerDatabaseTools(server: McpServer) {
             code: include_code ? func.code : null,
             parameters: func.parameters || [],
             return_type: func.return_type,
-            caller_count: func.caller_count,
-            callee_count: func.callee_count
+            caller_count: func.caller_count || callersData.length,
+            callee_count: func.callee_count || calleesData.length
           },
-          callers: callersResult.rows.map(c => ({
+          callers: callersData.map((c: any) => ({
             id: c.id,
             name: c.name,
             file_path: c.file_path
           })),
-          callees: calleesResult.rows.map(c => ({
+          callees: calleesData.map((c: any) => ({
             id: c.id,
             name: c.name,
             file_path: c.file_path
@@ -156,7 +115,7 @@ export function registerDatabaseTools(server: McpServer) {
   );
 
   // 3. get_all_functions
-  registerTool(
+  server.registerTool(
     'get_all_functions',
     {
       title: 'Get All Functions',
@@ -168,22 +127,20 @@ export function registerDatabaseTools(server: McpServer) {
     },
     async ({ codebase_id, limit }) => {
       try {
-        const result = await query<FunctionResult>(
-          `SELECT id, name, signature, file_path
-           FROM functions
-           WHERE codebase_id = $1
-           LIMIT $2`,
-          [codebase_id, limit]
-        );
+        // Use Supabase to get functions
+        const functions = await queryFunctions({
+          codebase_id,
+          limit: limit || 500
+        });
 
         return createSuccessResponse({
-          functions: result.rows.map(f => ({
+          functions: functions.map((f: any) => ({
             id: f.id,
             name: f.name,
             signature: f.signature,
             file_path: f.file_path
           })),
-          count: result.rows.length
+          count: functions.length
         });
       } catch (error) {
         return createErrorResponse(error, 'Failed to get functions');
@@ -192,7 +149,7 @@ export function registerDatabaseTools(server: McpServer) {
   );
 
   // 4. get_call_graph
-  registerTool(
+  server.registerTool(
     'get_call_graph',
     {
       title: 'Get Call Graph',
@@ -204,58 +161,70 @@ export function registerDatabaseTools(server: McpServer) {
     },
     async ({ codebase_id, function_id }) => {
       try {
-        let nodesResult: any;
-        let edgesResult: any;
+        let nodes: any[];
+        let edges: any[];
 
         if (function_id) {
-          // Get call graph for specific function
-          nodesResult = await query(
-            `SELECT DISTINCT f1.id, f1.name, f1.file_path
-             FROM functions f1
-             JOIN function_calls fc ON (f1.id = fc.caller_id OR f1.id = fc.callee_id)
-             WHERE (fc.caller_id = $1 OR fc.callee_id = $1)
-             AND f1.codebase_id = $2`,
-            [function_id, codebase_id]
+          // Get call graph for specific function using Supabase
+          // Get all calls involving this function
+          const calls = await queryFunctionCalls({});
+          const relevantCalls = calls.filter((c: any) => 
+            c.caller_id === function_id || c.callee_id === function_id
           );
+          
+          // Get unique function IDs
+          const functionIds = [...new Set([
+            function_id,
+            ...relevantCalls.map((c: any) => c.caller_id),
+            ...relevantCalls.map((c: any) => c.callee_id)
+          ])].filter(id => id === function_id || relevantCalls.some((c: any) => 
+            c.caller_id === id || c.callee_id === id
+          ));
 
-          edgesResult = await query(
-            `SELECT caller_id, callee_id, call_site
-             FROM function_calls
-             WHERE caller_id IN (
-               SELECT id FROM functions WHERE codebase_id = $1
-             ) AND (caller_id = $2 OR callee_id = $2)`,
-            [codebase_id, function_id]
-          );
+          // Get function details for nodes
+          nodes = (await Promise.all(functionIds.map(id => getFunctionById(id))))
+            .filter((f: any) => f && f.codebase_id === codebase_id)
+            .map((f: any) => ({
+              id: f.id,
+              name: f.name,
+              file_path: f.file_path
+            }));
+
+          // Get edges for this function
+          edges = relevantCalls
+            .filter((c: any) => c.caller_id === function_id || c.callee_id === function_id)
+            .map((e: any) => ({
+              caller_id: e.caller_id,
+              callee_id: e.callee_id,
+              call_site: e.call_site
+            }));
         } else {
           // Get all functions in codebase
-          nodesResult = await query(
-            `SELECT id, name, file_path
-             FROM functions
-             WHERE codebase_id = $1`,
-            [codebase_id]
-          );
+          const functions = await queryFunctions({ codebase_id, limit: 1000 });
+          nodes = functions.map((f: any) => ({
+            id: f.id,
+            name: f.name,
+            file_path: f.file_path
+          }));
 
-          // Get edges (function calls)
-          edgesResult = await query(
-            `SELECT fc.caller_id, fc.callee_id, fc.call_site
-             FROM function_calls fc
-             JOIN functions f ON (f.id = fc.caller_id OR f.id = fc.callee_id)
-             WHERE f.codebase_id = $1`,
-            [codebase_id]
-          );
+          // Get edges (function calls) - need to get calls for all functions
+          const functionIds = functions.map((f: any) => f.id);
+          const allCalls = await queryFunctionCalls({ function_ids: functionIds });
+          
+          // Filter to only include calls where both caller and callee are in this codebase
+          const functionIdSet = new Set(functionIds);
+          edges = allCalls
+            .filter((c: any) => functionIdSet.has(c.caller_id) && functionIdSet.has(c.callee_id))
+            .map((e: any) => ({
+              caller_id: e.caller_id,
+              callee_id: e.callee_id,
+              call_site: e.call_site
+            }));
         }
 
         return createSuccessResponse({
-          nodes: nodesResult.rows.map((n: any) => ({
-            id: n.id,
-            name: n.name,
-            file_path: n.file_path
-          })),
-          edges: edgesResult.rows.map((e: any) => ({
-            caller_id: e.caller_id,
-            callee_id: e.callee_id,
-            call_site: e.call_site
-          }))
+          nodes,
+          edges
         });
       } catch (error) {
         return createErrorResponse(error, 'Failed to get call graph');
