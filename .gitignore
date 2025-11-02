@@ -6,6 +6,8 @@ node_modules/
 *.tsbuildinfo
 
 # Testing
+tests/
 coverage/
 *.test.js
 *.spec.js
+test-*.js

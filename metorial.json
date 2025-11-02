@@ -1,5 +1,6 @@
 {
   "name": "TypeScript MCP Server",
-  "runtime": "typescript.deno"
+  "runtime": "typescript.deno",
+  "entry": "server.ts"
 }
 

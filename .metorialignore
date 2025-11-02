@@ -1,0 +1,6 @@
+tests/
+*.test.ts
+*.spec.ts
+test-*.js
+coverage/
+
