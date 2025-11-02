@@ -1,0 +1,4 @@
+{
+  "name": "TypeScript MCP Server",
+  "runtime": "typescript.deno"
+}
